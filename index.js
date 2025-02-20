@@ -140,82 +140,69 @@ app.post('/process-video', async (req, res) => {
           await downloadFile(node.background_mp3, audioPath);
           console.log(`Audio downloaded successfully to: ${audioPath}`);
           
-          // Verify files exist and have size
-          const [imgStats, audioStats] = await Promise.all([
-            fs.promises.stat(imgPath),
-            fs.promises.stat(audioPath)
-          ]);
-          
-          if (!imgStats.size || !audioStats.size) {
-            throw new Error('Downloaded files are empty');
-          }
-
-          // Get audio duration
-          await new Promise((resolve, reject) => {
+          // 获取音频时长
+          const audioDuration = await new Promise((resolve, reject) => {
             ffmpeg.ffprobe(audioPath, (err, metadata) => {
               if (err) {
-                console.error(`Error probing audio file: ${err}`);
                 reject(err);
                 return;
               }
               const duration = metadata.format.duration;
               console.log(`Audio duration for segment ${index}: ${duration} seconds`);
-              resolve();
+              resolve(duration);
             });
           });
           
+          const outputPath = path.join(outputDir, `segment_${index}.mp4`);
+          
+          await new Promise((resolve, reject) => {
+            ffmpeg()
+              .input(imgPath)
+              .inputOptions([
+                '-loop', '1',
+                '-t', audioDuration.toString()  // 设置视频时长等于音频时长
+              ])
+              .input(audioPath)
+              .outputOptions([
+                '-c:v', 'libx264',
+                '-tune', 'stillimage',
+                '-c:a', 'aac',
+                '-b:a', '192k',
+                '-pix_fmt', 'yuv420p',
+                '-shortest'
+              ])
+              .save(outputPath)
+              .on('progress', (progress) => {
+                console.log(`片段 ${index + 1} 处理进度: ${progress.percent}%`);
+              })
+              .on('end', () => {
+                console.log(`片段 ${index + 1} 生成完成: ${outputPath}`);
+                resolve(outputPath);
+              })
+              .on('error', (err) => {
+                console.error(`片段 ${index + 1} 生成失败:`, err);
+                reject(err);
+              });
+          });
+          
+          return outputPath;
         } catch (err) {
-          console.error(`下载或验证媒体文件失败:`, err);
-          // Clean up any partially downloaded files
+          console.error(`处理媒体文件失败:`, err);
           if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
           if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
           return null;
         }
-        
-        const outputPath = path.join(outputDir, `segment_${index}.mp4`);
-        
-        return new Promise((resolve, reject) => {
-          ffmpeg()
-            .input(imgPath)
-            .loop(1)  // 循环图片
-            .inputOptions([
-              '-stream_loop', '-1'  // 无限循环输入图片
-            ])
-            .input(audioPath)
-            .outputOptions([
-              '-shortest',  // 使用音频长度作为视频长度
-              '-c:v', 'libx264',  // 使用 h264 编码
-              '-tune', 'stillimage',  // 优化静态图片
-              '-c:a', 'aac',  // 使用 aac 音频编码
-              '-b:a', '192k',  // 音频比特率
-              '-pix_fmt', 'yuv420p',  // 兼容性更好的像素格式
-              '-r', '30'  // 帧率
-            ])
-            .save(outputPath)
-            .on('progress', (progress) => {
-              console.log(`片段 ${index + 1} 处理进度: ${progress.percent}%`);
-            })
-            .on('end', () => {
-              console.log(`片段 ${index + 1} 生成完成: ${outputPath}`);
-              // 清理临时文件
-              fs.unlink(imgPath, () => {});
-              fs.unlink(audioPath, () => {});
-              resolve(outputPath);
-            })
-            .on('error', (err) => {
-              console.error(`片段 ${index + 1} 生成失败:`, err);
-              // 清理临时文件
-              fs.unlink(imgPath, () => {});
-              fs.unlink(audioPath, () => {});
-              reject(err);
-            });
-        });
       });
   
       console.log('等待所有视频片段生成...');
       const segments = await Promise.all(videoPromises);
       const validSegments = segments.filter(Boolean);
       console.log(`成功生成 ${validSegments.length} 个视频片段`);
+    
+      // 生成唯一的输出文件名
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 8);
+      const finalOutput = path.join(outputDir, `video_${timestamp}_${randomStr}.mp4`);
     
       // 将合并逻辑包装在 Promise 中
       await new Promise((resolve, reject) => {
@@ -225,12 +212,7 @@ app.post('/process-video', async (req, res) => {
         fs.writeFileSync(listFilePath, fileContent);
         console.log('生成合并文件列表:', fileContent);
 
-        // 生成唯一的输出文件名
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).substring(2, 8);
-        const finalOutput = path.join(outputDir, `video_${timestamp}_${randomStr}.mp4`);
         console.log('开始合并视频片段...');
-
         ffmpeg()
           .input(listFilePath)
           .inputOptions(['-f', 'concat', '-safe', '0'])
@@ -266,11 +248,12 @@ app.post('/process-video', async (req, res) => {
       });
 
       const videoFileName = path.basename(finalOutput);
-      res.json({ videoUrl: `/output/${videoFileName}` });
-  } catch (error) {
-    console.error('处理过程出错:', error);
-    res.status(500).json({ error: error.message });
-  }
+      return res.json({ videoUrl: `/output/${videoFileName}` });
+
+    } catch (error) {
+      console.error('处理过程出错:', error);
+      return res.status(500).json({ error: error.message });
+    }
 });
 
 // 添加文件下载功能
