@@ -15,6 +15,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// 添加特定的图片 MIME 类型处理
+app.use('/output', (req, res, next) => {
+  if (req.path.match(/\.(jpg|jpeg|png|gif)$/i)) {
+    res.type(path.extname(req.path));
+  }
+  next();
+});
+
 // 静态文件服务
 app.use('/output', express.static('output'));
 
