@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const ffmpeg = require('fluent-ffmpeg');
+ffmpeg.setFfmpegPath('/bin/ffmpeg');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
