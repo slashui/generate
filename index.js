@@ -225,7 +225,10 @@ app.post('/process-video', async (req, res) => {
         fs.writeFileSync(listFilePath, fileContent);
         console.log('生成合并文件列表:', fileContent);
 
-        const finalOutput = path.join(outputDir, 'final.mp4');
+        // 生成唯一的输出文件名
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 8);
+        const finalOutput = path.join(outputDir, `video_${timestamp}_${randomStr}.mp4`);
         console.log('开始合并视频片段...');
 
         ffmpeg()
@@ -238,11 +241,20 @@ app.post('/process-video', async (req, res) => {
           })
           .on('end', () => {
             console.log('视频合并完成！');
-            fs.unlinkSync(listFilePath);
-            // 清理临时片段文件
-            validSegments.forEach(segment => fs.unlink(segment, () => {}));
-            console.log('清理临时文件完成');
-            resolve();
+            // 检查最终视频的时长
+            ffmpeg.ffprobe(finalOutput, (err, metadata) => {
+              if (err) {
+                console.error('获取视频时长失败:', err);
+              } else {
+                const duration = metadata.format.duration;
+                console.log(`最终视频时长: ${duration} 秒`);
+              }
+              fs.unlinkSync(listFilePath);
+              // 清理临时片段文件
+              validSegments.forEach(segment => fs.unlink(segment, () => {}));
+              console.log('清理临时文件完成');
+              resolve();
+            });
           })
           .on('error', (err) => {
             console.error('视频合并失败:', err);
@@ -253,8 +265,8 @@ app.post('/process-video', async (req, res) => {
           });
       });
 
-      res.json({ videoUrl: '/output/final.mp4' });
-
+      const videoFileName = path.basename(finalOutput);
+      res.json({ videoUrl: `/output/${videoFileName}` });
   } catch (error) {
     console.error('处理过程出错:', error);
     res.status(500).json({ error: error.message });
