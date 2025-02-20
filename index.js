@@ -10,7 +10,7 @@ if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
-ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
+ffmpeg.setFfmpegPath('/bin/ffmpeg');
 
 const app = express();
 app.use(cors());
