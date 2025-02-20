@@ -17,7 +17,7 @@ app.use(express.json());
 
 // 添加特定的图片 MIME 类型处理
 app.use('/output', (req, res, next) => {
-  if (req.path.match(/\.(jpg|jpeg|png|gif)$/i)) {
+  if (req.path.match(/\.(jpg|jpeg|png|gif|mp3|mp4)$/i)) {
     res.type(path.extname(req.path));
   }
   next();
