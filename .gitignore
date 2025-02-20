@@ -1,6 +1,4 @@
-# Output files
-output/
-*.out
+
 
 # System files
 .DS_Store
