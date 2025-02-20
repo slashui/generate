@@ -6,11 +6,18 @@ const path = require('path');
 const fs = require('fs');
 const https = require('https');
 const http = require('http');
+const { generateTTS } = require('./tts');
 
 // 确保输出目录存在
 const outputDir = path.join(__dirname, 'output');
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
+}
+
+// 确保音频目录存在
+const audioDir = path.join(outputDir, 'audio');
+if (!fs.existsSync(audioDir)) {
+  fs.mkdirSync(audioDir, { recursive: true });
 }
 
 // 下载文件的辅助函数
@@ -85,6 +92,23 @@ app.use(express.json());
 // 静态文件服务
 app.use('/output', express.static('output'));
 
+// TTS 生成接口
+app.post('/generate-tts', async (req, res) => {
+  try {
+    const { text } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    const audioPath = await generateTTS(text);
+    res.json({ audioUrl: audioPath });
+  } catch (error) {
+    console.error('TTS generation failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 处理视频生成请求
 app.post('/process-video', async (req, res) => {
     const { storyNodes } = req.body;
@@ -125,6 +149,20 @@ app.post('/process-video', async (req, res) => {
           if (!imgStats.size || !audioStats.size) {
             throw new Error('Downloaded files are empty');
           }
+
+          // Get audio duration
+          await new Promise((resolve, reject) => {
+            ffmpeg.ffprobe(audioPath, (err, metadata) => {
+              if (err) {
+                console.error(`Error probing audio file: ${err}`);
+                reject(err);
+                return;
+              }
+              const duration = metadata.format.duration;
+              console.log(`Audio duration for segment ${index}: ${duration} seconds`);
+              resolve();
+            });
+          });
           
         } catch (err) {
           console.error(`下载或验证媒体文件失败:`, err);
@@ -140,6 +178,9 @@ app.post('/process-video', async (req, res) => {
           ffmpeg()
             .input(imgPath)
             .loop(1)  // 循环图片
+            .inputOptions([
+              '-stream_loop', '-1'  // 无限循环输入图片
+            ])
             .input(audioPath)
             .outputOptions([
               '-shortest',  // 使用音频长度作为视频长度
