@@ -10,6 +10,8 @@ if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
+const ffmpeg = require('fluent-ffmpeg');
+ffmpeg.setFfmpegPath('/usr/bin/ffmpeg');
 
 const app = express();
 app.use(cors());
