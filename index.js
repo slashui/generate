@@ -31,6 +31,13 @@ async function downloadFile(url, outputPath) {
     const file = fs.createWriteStream(outputPath);
     
     const request = protocol.get(url, (response) => {
+      console.log(`Download response for ${url}:`, {
+        statusCode: response.statusCode,
+        headers: response.headers,
+        contentType: response.headers['content-type'],
+        contentLength: response.headers['content-length']
+      });
+
       if (response.statusCode !== 200) {
         file.close();
         fs.unlink(outputPath, () => {});
@@ -38,9 +45,15 @@ async function downloadFile(url, outputPath) {
         return;
       }
       
+      let downloadedBytes = 0;
+      response.on('data', (chunk) => {
+        downloadedBytes += chunk.length;
+      });
+
       response.pipe(file);
       file.on('finish', () => {
         file.close();
+        console.log(`Download completed for ${url}, total bytes: ${downloadedBytes}`);
         // Verify file exists and has size
         fs.stat(outputPath, (err, stats) => {
           if (err || !stats.size) {
