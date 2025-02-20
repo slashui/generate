@@ -18,20 +18,47 @@ async function downloadFile(url, outputPath) {
   return new Promise((resolve, reject) => {
     // 如果是相对路径，直接返回
     if (url.startsWith('/')) {
-      resolve(path.join(__dirname, url));
+      const localPath = path.join(__dirname, url);
+      if (!fs.existsSync(localPath)) {
+        reject(new Error(`Local file not found: ${localPath}`));
+        return;
+      }
+      resolve(localPath);
       return;
     }
 
     const protocol = url.startsWith('https') ? https : http;
     const file = fs.createWriteStream(outputPath);
     
-    protocol.get(url, (response) => {
+    const request = protocol.get(url, (response) => {
+      if (response.statusCode !== 200) {
+        file.close();
+        fs.unlink(outputPath, () => {});
+        reject(new Error(`Failed to download file: ${url}, Status: ${response.statusCode}`));
+        return;
+      }
+      
       response.pipe(file);
       file.on('finish', () => {
         file.close();
-        resolve(outputPath);
+        // Verify file exists and has size
+        fs.stat(outputPath, (err, stats) => {
+          if (err || !stats.size) {
+            fs.unlink(outputPath, () => {});
+            reject(new Error(`Downloaded file is invalid or empty: ${outputPath}`));
+            return;
+          }
+          resolve(outputPath);
+        });
       });
-    }).on('error', (err) => {
+    });
+
+    request.on('error', (err) => {
+      fs.unlink(outputPath, () => {});
+      reject(err);
+    });
+
+    file.on('error', (err) => {
       fs.unlink(outputPath, () => {});
       reject(err);
     });
@@ -68,10 +95,29 @@ app.post('/process-video', async (req, res) => {
         const audioPath = path.join(outputDir, `temp_audio_${index}${path.extname(node.background_mp3)}`);
         
         try {
+          console.log(`Downloading image from: ${node.img_url}`);
           await downloadFile(node.img_url, imgPath);
+          console.log(`Image downloaded successfully to: ${imgPath}`);
+          
+          console.log(`Downloading audio from: ${node.background_mp3}`);
           await downloadFile(node.background_mp3, audioPath);
+          console.log(`Audio downloaded successfully to: ${audioPath}`);
+          
+          // Verify files exist and have size
+          const [imgStats, audioStats] = await Promise.all([
+            fs.promises.stat(imgPath),
+            fs.promises.stat(audioPath)
+          ]);
+          
+          if (!imgStats.size || !audioStats.size) {
+            throw new Error('Downloaded files are empty');
+          }
+          
         } catch (err) {
-          console.error(`下载媒体文件失败:`, err);
+          console.error(`下载或验证媒体文件失败:`, err);
+          // Clean up any partially downloaded files
+          if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+          if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
           return null;
         }
         
