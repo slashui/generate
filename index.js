@@ -141,7 +141,15 @@ app.post('/process-video', async (req, res) => {
             .input(imgPath)
             .loop(1)  // 循环图片
             .input(audioPath)
-            .outputOptions(['-shortest'])  // 使用音频长度作为视频长度
+            .outputOptions([
+              '-shortest',  // 使用音频长度作为视频长度
+              '-c:v', 'libx264',  // 使用 h264 编码
+              '-tune', 'stillimage',  // 优化静态图片
+              '-c:a', 'aac',  // 使用 aac 音频编码
+              '-b:a', '192k',  // 音频比特率
+              '-pix_fmt', 'yuv420p',  // 兼容性更好的像素格式
+              '-r', '30'  // 帧率
+            ])
             .save(outputPath)
             .on('progress', (progress) => {
               console.log(`片段 ${index + 1} 处理进度: ${progress.percent}%`);
