@@ -26,7 +26,7 @@ async function generateImage(prompt, options = {}) {
     };
 
     try {
-        const response = await fetch('https://zeakai.api4midjourney.com/v1/images/generations', {
+        const response = await fetch('https://zeakai.api4midjourney.com/api/v1/images/generations', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
