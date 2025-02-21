@@ -11,7 +11,7 @@ async function generateTTS(text) {
         console.log('2. 接收到文本:', text);
 
         const requestBody = {
-            model: "speech-01-hd",
+            model: "speech-01-turbo",
             text: text || 'Hello world',
             stream: false,
             voice_setting: {
