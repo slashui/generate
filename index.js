@@ -7,6 +7,8 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const { generateTTS } = require('./tts');
+const { generateImage } = require('./flux');
+const { generateIdeogram } = require('./ideogram');
 
 // 确保输出目录存在
 const outputDir = path.join(__dirname, 'output');
@@ -88,9 +90,7 @@ async function downloadFile(url, outputPath) {
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-// 静态文件服务
-app.use('/output', express.static('output'));
+app.use('/output', express.static(path.join(__dirname, 'output')));
 
 // TTS 生成接口
 app.post('/generate-tts', async (req, res) => {
@@ -254,6 +254,30 @@ app.post('/process-video', async (req, res) => {
       console.error('处理过程出错:', error);
       return res.status(500).json({ error: error.message });
     }
+});
+
+// Flux 图片生成接口
+app.post('/flux', async (req, res) => {
+  try {
+    const { prompt, ...options } = req.body;
+    const imagePath = await generateImage(prompt, options);
+    res.json({ path: imagePath });
+  } catch (error) {
+    console.error('Flux generation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Ideogram 图片生成接口
+app.post('/ideogram', async (req, res) => {
+  try {
+    const { prompt, ...options } = req.body;
+    const imagePath = await generateIdeogram(prompt, options);
+    res.json({ path: imagePath });
+  } catch (error) {
+    console.error('Ideogram generation error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // 添加文件下载功能
