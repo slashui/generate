@@ -41,8 +41,14 @@ async function generateImage(prompt, options = {}) {
 
         const data = await response.json();
         
-        // 假设 API 返回的图片数据在 data.images[0].url 或类似的位置
-        const imageUrl = data.images[0].url;
+        console.log('API Response:', data); // 添加日志查看响应内容
+        
+        if (!data || !data.data || !data.data[0] || !data.data[0].url) {
+            throw new Error('Invalid response format from API');
+        }
+
+        // 获取图片URL
+        const imageUrl = data.data[0].url;
         const imageResponse = await fetch(imageUrl);
         const imageBuffer = await imageResponse.arrayBuffer();
 

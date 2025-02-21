@@ -22,6 +22,12 @@ if (!fs.existsSync(audioDir)) {
   fs.mkdirSync(audioDir, { recursive: true });
 }
 
+// 确保图片目录存在
+const imgDir = path.join(outputDir, 'img');
+if (!fs.existsSync(imgDir)) {
+  fs.mkdirSync(imgDir, { recursive: true });
+}
+
 // 下载文件的辅助函数
 async function downloadFile(url, outputPath) {
   return new Promise((resolve, reject) => {
