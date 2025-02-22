@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const API_KEY = '70ece96e-65b0-4ce3-98e3-dcb2bd512a27';
+const API_KEY = 'a16ddd86-63fa-4b70-b000-ca72f76e02db';
 
 /**
  * Generate an image using the Flux API
