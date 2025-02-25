@@ -1,8 +1,13 @@
 const fs = require('fs');
 const path = require('path');
+const fetch = require('node-fetch');
+const https = require('https');
 
-const API_KEY = 'a16ddd86-63fa-4b70-b000-ca72f76e02db';
-
+const API_KEY = '86b32e3a-6489-43cf-967b-d7cb6e001ffc';
+// Create agent to ignore certificate errors
+const agent = new https.Agent({
+    rejectUnauthorized: false
+});
 /**
  * Generate an image using the Flux API
  * @param {string} prompt - The description of the image to generate
@@ -32,7 +37,8 @@ async function generateImage(prompt, options = {}) {
                 'Content-Type': 'application/json',
                 'Authorization': API_KEY
             },
-            body: JSON.stringify(requestData)
+            body: JSON.stringify(requestData),
+            agent
         });
 
         if (!response.ok) {
@@ -49,7 +55,7 @@ async function generateImage(prompt, options = {}) {
 
         // 获取图片URL
         const imageUrl = data.data[0].url;
-        const imageResponse = await fetch(imageUrl);
+        const imageResponse = await fetch(imageUrl, { agent });
         const imageBuffer = await imageResponse.arrayBuffer();
 
         // 生成文件名（使用时间戳和随机数确保唯一性）
